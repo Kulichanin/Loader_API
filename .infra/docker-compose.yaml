@@ -2,8 +2,8 @@ services:
   postgres:
     image: postgres:latest
     environment:
-      POSTGRES_DB: "loader_app_db"
-      POSTGRES_USER: "loader_app"
-      POSTGRES_PASSWORD: "loader_app"
+      POSTGRES_USER: ${PG_USERNAME}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DATABASE}
     ports:
       - "5432:5432"

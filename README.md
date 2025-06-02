@@ -116,6 +116,12 @@ docker build -t kdv/loader_api .
 docker run -d -p 8000:8000 --name loader_api kdv/loader_api:latest
 ```
 
+Запуск через docker compose
+
+```bash
+docker-compose --env-file ../env up -d
+```
+
 ## Улучшения для production
 
 * Использовать переменные docker для конфигурации БД
