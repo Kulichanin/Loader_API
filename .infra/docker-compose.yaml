@@ -1,10 +1,9 @@
-version: "3.9"
 services:
   postgres:
     image: postgres:latest
     environment:
-      POSTGRES_DB: ""
-      POSTGRES_USER: ""
-      POSTGRES_PASSWORD: ""
+      POSTGRES_DB: "loader_app_db"
+      POSTGRES_USER: "loader_app"
+      POSTGRES_PASSWORD: "loader_app"
     ports:
       - "5432:5432"

@@ -1,6 +1,5 @@
 # FastAPI— это класс Python, который предоставляет все функциональные возможности вашего API.
-from typing import Annotated
-from fastapi import FastAPI, HTTPException, UploadFile, Header, Request, status
+from fastapi import FastAPI, HTTPException, UploadFile, Request, status
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from database import Database
@@ -26,10 +25,17 @@ class DeleteFileRequest(BaseModel):
 
 
 # Получаем путь для загрузки из переменных окружения
-PATH_DOWNLOAD = environ.get('PATH_DOWNLOAD', './uploads')
+PATH_DOWNLOAD = environ.get("PATH_DOWNLOAD", "/uploads")
 
 # Создаем директорию, если ее нет
-makedirs(PATH_DOWNLOAD, exist_ok=True)
+makedirs(dirname(__file__)+PATH_DOWNLOAD, exist_ok=True)
+
+# Типы файлов доступные для загрузки
+allowed_content_types = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ]
 
 # Инициализация таблицы и проверка подключения к БД.
 # В реальном приложении создание таблицы делается через миграции (например, с помощью Alembic)
@@ -65,6 +71,9 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/")
 # 1. GET / - Проверка статуса сервера
 def get_server_status(request: Request) -> dict:
+    """
+    Получение статус работы сервера
+    """
     user_agent = request.headers.get("user-agent")
     return {"status": "running", "framework": "FastAPI", "User-Agent": user_agent}
 
@@ -72,13 +81,9 @@ def get_server_status(request: Request) -> dict:
 @app.post("/loader")
 # 2. POST /loader - Загрузка файла
 def upload_file(file: UploadFile):
-    # Типы файлов доступные для загрузки
-    allowed_content_types = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ]
-
+    """
+    Загружает файл на сервер и записывает данные о нем в БД.
+    """
     if file.content_type not in allowed_content_types:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -88,7 +93,7 @@ def upload_file(file: UploadFile):
     # Генерируем уникальный ID и путь для файла
     file_id = str(uuid4())
     file_extension = splitext(file.filename)[1]
-    file_path = join(PATH_DOWNLOAD, f"{file_id}{file_extension}")
+    file_path = join(dirname(__file__)+PATH_DOWNLOAD, f"{file_id}{file_extension}")
 
     # Сохраняем файл на диск
     try:
@@ -116,14 +121,16 @@ def upload_file(file: UploadFile):
 @app.get("/files", response_model=list[FileRecord])
 # 3. GET /files - список всех файлов
 def get_all_files():
-    """Возвращает список всех файлов в базе данных"""
+    """
+    Возвращает список всех файлов в базе данных.
+    """
     files = Database.fetchall(
         "SELECT file_id, file_name, file_path FROM files ORDER BY file_name"
     )
     return files
 
 
-@app.delete("/delete_file/{file_id}")
+@app.delete("/delete_file/{file_id}", response_model=list[DeleteFileRequest])
 # 4. DELETE /delete_file - Удаление файла по ID
 def delete_file(file_id: str):
     """
