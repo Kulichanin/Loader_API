@@ -1,9 +1,10 @@
 # FastAPI— это класс Python, который предоставляет все функциональные возможности вашего API.
-from fastapi import FastAPI, HTTPException, UploadFile, Request, status
+from ast import AnnAssign
+from fastapi import FastAPI, HTTPException, UploadFile, File, Path, status
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from database import Database
-from typing import AsyncIterator
+from typing import AsyncIterator, Annotated
 from uuid import uuid4
 from dotenv import load_dotenv
 from os.path import join, dirname, splitext, join, exists
@@ -13,16 +14,16 @@ from os import environ, makedirs, remove
 dotenv_path = join(dirname(__file__), 'env')
 load_dotenv(dotenv_path)
 
+class HealthCheck(BaseModel):
+    status: str = "OK"
 
 class FileRecord(BaseModel):
-    file_id: str
-    file_name: str
-    file_path: str
+    file_id: str = "b4dbcf94-ad7f-4f0c-b083-47d0af530a6b"
+    file_name: str = "test.pdf"
+    file_path: str = "/loader/uploads/b4dbcf94-ad7f-4f0c-b083-47d0af530a6b.pdf"
 
-
-class DeleteFileRequest(BaseModel):
-    file_id: str
-
+class DeleteFile(BaseModel):
+    file_id: str = "b4dbcf94-ad7f-4f0c-b083-47d0af530a6b"
 
 # Получаем путь для загрузки из переменных окружения
 PATH_DOWNLOAD = environ.get("PATH_DOWNLOAD", "/uploads")
@@ -60,29 +61,41 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 # Здесь appпеременная будет «экземпляром» класса FastAPI.
 # Это будет основная точка взаимодействия при создании всего вашего API.
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, title="Loader API", summary="Example of api work for file upload ", version="0.7")
 
 
 # Создаем URL для обрещения с определением метода(POST, GET, PUT, DELETE).
 # Путь здесь относится к последней части URL-адреса, начинающейся с первой /.
 # Определяем декоратор операции пути.
 
-
-@app.get("/")
-# 1. GET / - Проверка статуса сервера
-def get_server_status(request: Request) -> dict:
+@app.get(
+    "/health",
+    tags=["healthcheck"],
+    summary="Perform a Health Check",
+    response_description="Return HTTP Status Code 200 (OK)",
+    status_code=status.HTTP_200_OK,
+    response_model=HealthCheck,
+)
+# 1. GET /health - Проверка статуса сервера
+def get_health():
     """
-    Получение статус работы сервера
+    ## Выполнить проверку работоспособности
+    Конечная точка для проверки работоспособности. Эта конечная точка может в первую очередь использоваться Docker
+    для обеспечения надежной оркестровки и управления контейнерами. Другие
+    службы, которые полагаются на правильное функционирование службы API, не будут развернуты, если эта
+    конечная точка возвращает любой другой код состояния HTTP, кроме 200 (OK).
+    Возвращает:
+        HealthCheck: возвращает ответ JSON со статусом работоспособности
     """
-    user_agent = request.headers.get("user-agent")
-    return {"status": "running", "framework": "FastAPI", "User-Agent": user_agent}
+    return HealthCheck(status="OK")
 
-
-@app.post("/loader")
+@app.post("/loader", tags=["loader_api"], response_model=FileRecord) 
 # 2. POST /loader - Загрузка файла
-def upload_file(file: UploadFile):
+def upload_file(file: Annotated[UploadFile, File(description="Поле, которое будет обработано для загрузки файла", media_type=allowed_content_types)]):
     """
     Загружает файл на сервер и записывает данные о нем в БД.
+    Возвращает:
+        JSON: возвращает ответ JSON с данным про файл
     """
     if file.content_type not in allowed_content_types:
         raise HTTPException(
@@ -118,11 +131,13 @@ def upload_file(file: UploadFile):
     }
 
 
-@app.get("/files", response_model=list[FileRecord])
+@app.get("/files", tags=["loader_api"], response_model=list[FileRecord])
 # 3. GET /files - список всех файлов
-def get_all_files():
+def get_all_files() -> list[FileRecord]:
     """
-    Возвращает список всех файлов в базе данных.
+    Список всех файлов в базе данных.
+    Возвращает:
+        JSON: возвращает ответ JSON с списков файлов
     """
     files = Database.fetchall(
         "SELECT file_id, file_name, file_path FROM files ORDER BY file_name"
@@ -130,11 +145,13 @@ def get_all_files():
     return files
 
 
-@app.delete("/delete_file/{file_id}", response_model=list[DeleteFileRequest])
+@app.delete("/delete_file/{file_id}", tags=["loader_api"], response_model=DeleteFile)
 # 4. DELETE /delete_file - Удаление файла по ID
-def delete_file(file_id: str):
+def delete_file(file_id: Annotated[str, Path(title="file_id", description="Значение file_id файла, которые нужно удалить")]):
     """
     Удаляет файл по его ID.
+    Возвращает:
+        JSON: возвращает ответ JSON с file_id и названием файла
     """
     file_info = Database.fetchall(
         "SELECT file_name, file_path FROM files WHERE file_id = %s",

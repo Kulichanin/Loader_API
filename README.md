@@ -116,10 +116,26 @@ docker build -t kdv/loader_api .
 docker run -d -p 8000:8000 --name loader_api kdv/loader_api:latest
 ```
 
+Также для тестов подготовлен docker compose файл `.infra/docker-compose.yaml` с которым поднимается сразу проект с БД
+
 Запуск через docker compose
 
 ```bash
-docker-compose --env-file ../env up -d
+docker compose --env-file env -f .infra/docker-compose.yaml up -d 
+```
+
+Обратить внимание! Если есть желание пробросить папку заранее с файлами на хостовую машину, необходимо после запуска docker compose изменить права на эту папку, иначе файлы сохраняться не будут и будет выскакивать ошибка следующего вида
+
+```json
+{
+    "detail": "Error saving file: [Errno 13] Permission denied: '/loader/uploads/0d5d401b-75f3-4a2f-a07a-d259e533a4cb.pdf'"
+}
+```
+
+Измение прав доступа на каталог
+
+```bash
+sudo chmod -R 777 uploads/
 ```
 
 ## Улучшения для production

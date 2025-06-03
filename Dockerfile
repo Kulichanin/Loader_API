@@ -8,20 +8,15 @@ ENV TZ="Europe/Moscow" \
     GID=1000 \
     PATH_APP=loader  \
     PATH_UDLOAD=uploads \
-    # Prevents Python from writing pyc files.
+    # Configure Python to not buffer "stdout" or create .pyc files
     PYTHONDONTWRITEBYTECODE=1 \
-    # Keeps Python from buffering stdout and stderr to avoid situations where
-    # the application crashes without emitting any logs due to buffering.
     PYTHONUNBUFFERED=1 \
     PORT_SERVICE=8000 \
     IP_SERVICE='0.0.0.0'
 
-# Create a group and user without a shell
-RUN addgroup -g "$GID" -S "$GROUPNAME" && \
-    adduser -u "$UID" -D -G "$GROUPNAME" -S "$USER" && \
-    mkdir -p /${PATH_APP}/${PATH_UDLOAD} && \
-    chown -R ${USER}:${GROUPNAME} /${PATH_APP}/${PATH_UDLOAD} && \
-    chmod -R 777 /${PATH_APP}/${PATH_UDLOAD}  
+# Create a group and user
+RUN addgroup -g ${GID} -S ${GROUPNAME} && \
+    adduser -u ${UID} -D -G ${GROUPNAME} -S ${USER}
 
 WORKDIR /${PATH_APP}
 
@@ -31,11 +26,13 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 COPY . .
 
+RUN mkdir -p /${PATH_APP}/${PATH_UDLOAD} && \
+    chown -R ${USER}:${GROUPNAME} /${PATH_APP} && \
+    chmod -R 777 /${PATH_APP}/${PATH_UDLOAD}
+
 EXPOSE ${PORT_SERVICE}
 
 # Switch to the new user
 USER $USER
 
 CMD ["sh", "-c", "uvicorn main:app --host $IP_SERVICE --port $PORT_SERVICE"]
-
-# CMD ["sh", "-c", "ls -la"]

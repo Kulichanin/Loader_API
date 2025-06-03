@@ -1,9 +1,49 @@
 services:
+  loader_api:
+    image: kdv/loader_api:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_POOL_MIN=${DB_POOL_MIN}
+      - DB_POOL_MAX=${DB_POOL_MAX}
+      - DB_SSLMODE=${DB_SSLMODE}
+      - DB_CONNECTION_TIMEOUT=${DB_CONNECTION_TIMEOUT}
+      - DB_STATEMENT_TIMEOUT=${DB_STATEMENT_TIMEOUT}
+      - PATH_DOWNLOAD=${PATH_DOWNLOAD}
+      - PORT=${PORT}
+    healthcheck:
+      test: ["CMD", "curl", "--include", "--request", "GET", "http://localhost:${DB_PORT}/healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 5  
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../uploads:/loader/uploads:rw
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - loader-tier
   postgres:
     image: postgres:latest
     environment:
-      POSTGRES_USER: ${PG_USERNAME}
-      POSTGRES_PASSWORD: ${PG_PASSWORD}
-      POSTGRES_DB: ${PG_DATABASE}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - loader-tier
+
+networks:
+  loader-tier:
